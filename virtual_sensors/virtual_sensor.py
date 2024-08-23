@@ -192,58 +192,25 @@ def second_difference_matrix(n, m):
     return D2
 
 class VirtualSensor:
-    def __init__(self, sys, data, pars, method='svr'):
-        self.sys = sys
+    def __init__(self, vars, pars, method='svr'):
         self.method = method
-        self.data = data
         self.pars = pars
+        self.vars = vars
+
+        # construct problem on init
+        self.update_problem()
         
-
-        # get dims
-        self.n_states, self.n_inputs, self.n_outputs = self.sys.get_dims()
-        self.n_samples = len(self.data.t)
-
-        # initialize cvx variables
-        if self.method == 'svr':
-            self.u = cp.Variable((self.n_inputs*self.n_samples,1))
-            self.zeta = cp.Variable((self.n_samples*self.n_outputs,1))
-            self.zeta_ast = cp.Variable((self.n_samples*self.n_outputs,1))
-        else:
-            print('specify method')
-        
-        # create virtual sensor 
-        self.get_problem()
-
-    def get_problem(self):
+    def update_problem(self):
         '''create the cvx problem'''
-        lam = self.pars['lam']
-        eps = self.pars['eps']
-        x0 = self.pars['x0']
-
-        #get measurements
-        y = np.array(self.data.y)
-
-        #get data equation
-        O, G = self.sys.dataeq(self.n_samples)
-
-        #second-difference matrix
-        D2 = second_difference_matrix(self.n_samples, self.n_inputs)
-
-        # define optimization variables
-        self.u = cp.Variable((self.n_inputs*self.n_samples,1))
-        self.zeta = cp.Variable((self.n_outputs*self.n_samples, 1))
-        self.zeta_ast = cp.Variable((self.n_outputs*self.n_samples, 1))
-      
         # define objective function
-        objective = cp.Minimize(cp.sum_squares(D2 @ self.u) + lam*cp.norm1(self.zeta + self.zeta_ast))
-        constraints = []
+        objective = cp.Minimize(cp.sum_squares(self.pars.D2 @ self.vars.u) + self.pars.lam*cp.norm1(self.vars.zeta + self.vars.zeta_ast))
 
         # define constraints
         constraints = [
-            y - G @ self.u - O @ x0 <= eps + self.zeta,
-            G @ self.u + O @ x0 - y <= eps + self.zeta_ast,
-            self.zeta >= 0,
-            self.zeta_ast >= 0
+            self.pars.y - self.pars.Gamma @ self.vars.u - self.pars.O @ self.pars.x0 <= self.pars.eps + self.vars.zeta,
+            self.pars.Gamma @ self.vars.u + self.pars.O @ self.pars.x0 - self.pars.y <= self.pars.eps + self.vars.zeta_ast,
+            self.vars.zeta >= 0,
+            self.vars.zeta_ast >= 0
         ]
 
         self.problem = cp.Problem(objective, constraints)

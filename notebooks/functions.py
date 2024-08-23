@@ -407,28 +407,6 @@ def process_estimates(n_batches, overlap, estimates, nstates=43):
 
 
 ### SVM outlier filtering
-def get_svm_problem(y,x0,G,O_mat,lam):
-    # define optimization variables
-    uhat_svm = cp.Variable((G.shape[1],1))
-    xi = cp.Variable((G.shape[0], 1))
-    xi_ast = cp.Variable((G.shape[0], 1))
-
-    # define objective function
-    objective = cp.Minimize(cp.sum_squares(regul @ uhat_svm) + lam*cp.norm1(xi + xi_ast))
-
-    # define constraints
-    constraints = [
-        y - G @ uhat_svm - O_mat @ x0 <= eps + xi,
-        G @ uhat_svm + O_mat @ x0 - y <= eps + xi_ast,
-        xi >= 0,
-        xi_ast >= 0
-    ]
-    # define and solve problem
-    return cp.Problem(objective, constraints)
-
-
-
-
 
 def svm_reconstruction(ss, measurements, batch_size, overlap=50, lam=0.1, eps=1, use_trend_filter=False):
     """
@@ -443,53 +421,48 @@ def svm_reconstruction(ss, measurements, batch_size, overlap=50, lam=0.1, eps=1,
     A, B, C, D = ss  # state space model
     O_mat, G, D2, L = get_data_equation_matrices(A, B, C, D, n, bs)  # data equation matrices
 
-    if use_trend_filter:
-        regul = D2 # regularization matrix
-    else:
-        regul = L
+    if use_trend_filter: regul = D2 # regularization matrix
+    else:                regul = L
     
     input_estimates = []
+    
+
     t0 = time.time()
-    # loop over all batches
+    
     for i in range(loop_len):
-        if i == 0:
-            batch = measurements[:bs,:]
-        elif i == loop_len-1:
-            batch = np.zeros((bs, measurements.shape[1])) # zero padding to finish estimation loop correctly
-        else:
-            batch = measurements[i*batch_size-overlap:(i+1)*batch_size+overlap,:]
-            y = batch.reshape(-1,1)
+        if i == 0:              batch = measurements[:bs,:]
+        elif i == loop_len-1:   batch = np.zeros((bs, measurements.shape[1])) # zero padding to finish estimation loop correctly
+        else:                   batch = measurements[i*batch_size-overlap:(i+1)*batch_size+overlap,:]
 
-            '''
-            # define optimization variables
-            uhat_svm = cp.Variable((G.shape[1],1))
-            xi = cp.Variable((G.shape[0], 1))
-            xi_ast = cp.Variable((G.shape[0], 1))
-        
-            # define objective function
-            objective = cp.Minimize(cp.sum_squares(regul @ uhat_svm) + lam*cp.norm1(xi + xi_ast))
-        
-            # define constraints
-            constraints = [
-                y - G @ uhat_svm - O_mat @ x0 <= eps + xi,
-                G @ uhat_svm + O_mat @ x0 - y <= eps + xi_ast,
-                xi >= 0,
-                xi_ast >= 0
-            ]
-            # define and solve problem
-            prob = cp.Problem(objective, constraints)
-            '''
-            prob = get_svm_problem(G,)
-            prob.solve()
-            print("prob solved ", i, " y shape = ", y.shape)
+        y = batch.reshape(-1,1)
 
-            estimate = uhat_svm.value
+        # define optimization variables
+        uhat_svm = cp.Variable((G.shape[1],1))
+        xi = cp.Variable((G.shape[0], 1))
+        xi_ast = cp.Variable((G.shape[0], 1))
+    
+        # define objective function
+        objective = cp.Minimize(cp.sum_squares(regul @ uhat_svm) + lam*cp.norm1(xi + xi_ast))
+    
+        # define constraints
+        constraints = [
+            y - G @ uhat_svm <= eps + xi,
+            G @ uhat_svm - y <= eps + xi_ast,
+            xi >= 0,
+            xi_ast >= 0
+        ]
+        # define and solve problem
+        prob = cp.Problem(objective, constraints)
+        prob.solve()
+        print("prob solved ", i, " y shape = ", y.shape)
 
-            input_estimates.append(estimate)
-        
-        t1 = time.time()
-        
-        print(f'\n CVXPY Solve time: {(1000 * (t1 - t0))} ms\n')
+        estimate = uhat_svm.value
+
+        input_estimates.append(estimate)
+    
+    t1 = time.time()
+    
+    print(f'\n CVXPY Solve time: {(1000 * (t1 - t0))} ms\n')
 
     return input_estimates
 
