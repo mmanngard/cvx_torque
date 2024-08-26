@@ -172,14 +172,6 @@ class DiscreteSystem:
 
         return O, Gamma
 
-# create data structure
-class DataClass:
-    def __init__(self,t,y):
-        self.t = t
-        self.y = y
-    def len(self):
-        return np.len(self.y)
-
 def second_difference_matrix(n, m):
     '''
     n: number of data points
@@ -191,33 +183,42 @@ def second_difference_matrix(n, m):
 
     return D2
 
-class VirtualSensor:
-    def __init__(self, vars, pars, method='svr'):
-        self.method = method
-        self.pars = pars
-        self.vars = vars
+#class VirtualSensor:
+#    def __init__(self, vars, pars, method='svr'):
+#        self.method = method
+#        self.pars = pars
+#        self.vars = vars
+#
+#        # construct problem on init
+#        self.update_problem()
+#        
+#    def update_problem(self):
+#        '''create the cvx problem'''
+#        # define objective function
+#        objective = cp.Minimize(cp.sum_squares(self.pars.D2 @ self.vars.u) + self.pars.lam*cp.norm1(self.vars.zeta + self.vars.zeta_ast))
+#
+#        # define constraints
+#        constraints = [
+#            self.pars.y - self.pars.Gamma @ self.vars.u - self.pars.O @ self.pars.x0 <= self.pars.eps + self.vars.zeta,
+#            self.pars.Gamma @ self.vars.u + self.pars.O @ self.pars.x0 - self.pars.y <= self.pars.eps + self.vars.zeta_ast,
+#            self.vars.zeta >= 0,
+#            self.vars.zeta_ast >= 0
+#        ]
+#
+#        self.problem = cp.Problem(objective, constraints)
+#
+#    def solve(self):
+#        self.problem.solve()
+#        print("prob solved ")
+#
+#    def get_plots(self):
+#        pass
 
-        # construct problem on init
-        self.update_problem()
-        
-    def update_problem(self):
-        '''create the cvx problem'''
-        # define objective function
-        objective = cp.Minimize(cp.sum_squares(self.pars.D2 @ self.vars.u) + self.pars.lam*cp.norm1(self.vars.zeta + self.vars.zeta_ast))
+# create data structure
+class DataClass:
+    def __init__(self,t,y):
+        self.t = t
+        self.y = y
+    def len(self):
+        return np.len(self.y)
 
-        # define constraints
-        constraints = [
-            self.pars.y - self.pars.Gamma @ self.vars.u - self.pars.O @ self.pars.x0 <= self.pars.eps + self.vars.zeta,
-            self.pars.Gamma @ self.vars.u + self.pars.O @ self.pars.x0 - self.pars.y <= self.pars.eps + self.vars.zeta_ast,
-            self.vars.zeta >= 0,
-            self.vars.zeta_ast >= 0
-        ]
-
-        self.problem = cp.Problem(objective, constraints)
-
-    def solve(self):
-        self.problem.solve()
-        print("prob solved ")
-
-    def get_plots(self):
-        pass
